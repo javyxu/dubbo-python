@@ -1,10 +1,20 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# production
-/dist
-/.vscode
-/build
-
-# misc
+## VSCode
+.vscode
 .DS_Store
-dubbo_python.egg-info
+.idea
+
+## Python
+*.pyc
+__pycache__
+build
+dist
+*.egg-info
+
+logs
+model
+*.zip
+*.tar.gz
+*.out
+
+logs
+executions

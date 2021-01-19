@@ -28,7 +28,7 @@ class NacosClient(NCObject):
                 if consumers and item.startswith('consumers'):
                     data_list.append(item)
             return data_list
-        cache_key = group_key(providers and 'providers' or '', consumers and 'consumers' or '', self.namespace)
+        cache_key = group_key(providers and 'providers' or '', consumers and 'consumers' or '', namespace_id)
         # get from failover
         content = read_file_str(self.failover_base, cache_key)
         if content is None:

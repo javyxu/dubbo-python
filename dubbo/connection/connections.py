@@ -218,16 +218,20 @@ class BaseConnectionPool(object):
 
         try:
             res = Response(body)
-            flag = res.read_int()
-            if flag == 2:  # 响应的值为NULL
-                self.results[invoke_id] = None
-            elif flag == 1:  # 正常的响应值
-                result = res.read_next()
-                self.results[invoke_id] = result
-            elif flag == 0:  # 异常的响应值
-                self.results[invoke_id] = self._parse_error(res)
-            else:
-                raise DubboResponseException("Unknown result flag, expect '0' '1' '2', get " + flag)
+            # flag = res.read_int()
+            # result = 
+            res.read_int()
+            self.results[invoke_id] = res.read_next()
+            # print(flag)
+            # if flag == 2:  # 响应的值为NULL
+            #     self.results[invoke_id] = None
+            # elif flag == 1 or flag == 4 or flag == 3 or flag ==5:  # 正常的响应值
+            #     result = res.read_next()
+            #     self.results[invoke_id] = result
+            # elif flag == 0:  # 异常的响应值
+            #     self.results[invoke_id] = self._parse_error(res)
+            # else:
+            #     raise DubboResponseException("Unknown result flag, expect '0' '1' '2', get " + flag)
         except Exception as e:
             logger.exception(e)
             self.results[invoke_id] = e

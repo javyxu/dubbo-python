@@ -398,6 +398,24 @@ class Request(object):
                                        ' is {0} but current type is {1}'.format(type(value[0]), type(v)))
             result.extend(self._encode_single_value(v))
         return result
+    
+    def _encode_dict(self, value):
+        """
+        对一个字典进行编码
+        :param value:
+        :return:
+        """
+        result = []
+        length = len(value)
+        if length == 0:
+            return self._encode_single_value(None)
+        
+        result.append("H")
+        for k,v in value.items():
+            result.extend(self._encode_single_value(k))
+            result.extend(self._encode_single_value(v))
+        result.append("Z")
+        return result
 
     def _encode_single_value(self, value):
         """
@@ -423,6 +441,8 @@ class Request(object):
         # 列表(list)类型，不可以使用tuple替代
         elif isinstance(value, list):
             return self._encode_list(value)
+        elif isinstance(value, dict):
+            return self._encode_dict(value)
         # null
         elif value is None:
             return [ord('N')]

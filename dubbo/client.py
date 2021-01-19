@@ -42,7 +42,7 @@ class DubboClient(object):
     用于实现dubbo调用的客户端
     """
 
-    def __init__(self, interface, version='1.0.0', dubbo_version='2.4.10', nacos_register=None, zk_register=None, host=None):
+    def __init__(self, interface, version='1.0.0', dubbo_version='2.7.6', nacos_register=None, zk_register=None, host=None):
         """
         :param interface: 接口名，例如：com.qianmi.pc.es.api.EsProductQueryProvider
         :param version: 接口的版本号，例如：1.0.0，默认为1.0.0
@@ -101,7 +101,7 @@ class DubboClient(object):
             'method': method,
             'arguments': args
         }
-
+        
         logger.debug('Start request, host={}, params={}'.format(host, request_param))
         start_time = time.time()
         result = connection_pool.get(host, request_param, timeout)
@@ -391,6 +391,7 @@ class NacosRegister(object):
         providers = self.nc.get_service_list(timeout=self.timeout, group_name=self.group_name, namespace_id=self.namespace_id)
         if not providers or service not in providers:
             raise RegisterException('no providers for service {}'.format(service))
+        service = 'providers:com.cloudwise.bdp.service.rpc.IDataStoreService:1.0.0'
         self.nc.subscribe([], service_name=service)
         services = self.nc.subscribed_local_manager.get_local_instances(service) or {}
         self.close()
@@ -410,7 +411,8 @@ class NacosRegister(object):
         :param interface:
         :return:
         """
-        hosts = self.hosts.get(interface)
+        # hosts = self.hosts.get(interface)
+        hosts = "10.0.2.50:8848"
         if not hosts:
             raise RegisterException('no host or providers for interface {}'.format(interface))
         return random.choice(hosts)

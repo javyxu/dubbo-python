@@ -25,12 +25,12 @@ import threading
 import time
 from struct import unpack, pack
 
-from dubbo.codec.encoder import Request
-from dubbo.codec.decoder import Response, parse_response_head
-from dubbo.common.constants import CLI_HEARTBEAT_RES_HEAD, CLI_HEARTBEAT_TAIL, CLI_HEARTBEAT_REQ_HEAD, \
+from ..codec.encoder import Request
+from ..codec.decoder import Response, parse_response_head
+from ..common.constants import CLI_HEARTBEAT_RES_HEAD, CLI_HEARTBEAT_TAIL, CLI_HEARTBEAT_REQ_HEAD, \
     TIMEOUT_CHECK_INTERVAL, TIMEOUT_IDLE, TIMEOUT_MAX_TIMES, DEFAULT_READ_PARAMS
-from dubbo.common.exceptions import DubboResponseException, DubboRequestTimeoutException
-from dubbo.common.util import get_invoke_id
+from ..common.exceptions import DubboResponseException, DubboRequestTimeoutException
+from ..common.util import get_invoke_id
 
 logger = logging.getLogger('python-dubbo')
 
@@ -47,14 +47,15 @@ class BaseConnectionPool(object):
         self.conn_lock = threading.Lock()
         # 用于在数据读取完毕之后唤醒主线程
         self.conn_events = {}
+        
+    def start_reading(self):
+        self.reading_thread = threading.Thread(target=self._read_from_server)
+        self.reading_thread.setDaemon(True)  # 当主线程退出时此线程同时退出
+        self.reading_thread.start()
 
-        reading_thread = threading.Thread(target=self._read_from_server)
-        reading_thread.setDaemon(True)  # 当主线程退出时此线程同时退出
-        reading_thread.start()
-
-        scanning_thread = threading.Thread(target=self._send_heartbeat)
-        scanning_thread.setDaemon(True)
-        scanning_thread.start()
+        self.scanning_thread = threading.Thread(target=self._send_heartbeat)
+        self.scanning_thread.setDaemon(True)
+        self.scanning_thread.start()
 
     def get(self, host, request_param, timeout=None):
         """
@@ -102,6 +103,7 @@ class BaseConnectionPool(object):
                 if host not in self._connection_pool:
                     self.client_heartbeats[host] = 0
                     self._new_connection(host)
+                    self.start_reading()
             finally:
                 self.conn_lock.release()
         return self._connection_pool[host]
@@ -149,6 +151,7 @@ class BaseConnectionPool(object):
         # 关闭连接
         if not data:
             logger.debug('{} closed by remote server.'.format(host))
+            self.start_reading
             self._delete_connection(conn)
             return 0, 0, 0
 
@@ -418,7 +421,3 @@ class Connection(object):
 
     def __repr__(self):
         return self.__host
-
-
-if __name__ == '__main__':
-    pass

@@ -18,6 +18,7 @@
  */
 """
 
+import json
 import logging
 import threading
 import time
@@ -26,13 +27,13 @@ from urllib.parse import quote
 
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
-from dubbo.nacos import NacosClient
+from .nacos import NacosClient
 
-from dubbo.common.constants import DUBBO_ZK_PROVIDERS, DUBBO_ZK_CONFIGURATORS, DUBBO_ZK_CONSUMERS, DUBBO_NC_PROVIDERS, DUBBO_NC_CONSUMERS
-from dubbo.common.exceptions import RegisterException
-from dubbo.common.util import parse_url, get_pid, get_ip
-from dubbo.connection.connections import connection_pool
-from dubbo.telnet import Telnet
+from .common.constants import DUBBO_ZK_PROVIDERS, DUBBO_ZK_CONFIGURATORS, DUBBO_ZK_CONSUMERS, DUBBO_NC_PROVIDERS, DUBBO_NC_CONSUMERS
+from .common.exceptions import RegisterException
+from .common.util import parse_url, get_pid, get_ip
+from .connection.connections import connection_pool
+from .telnet import Telnet
 
 logger = logging.getLogger('dubbo-python')
 
@@ -87,9 +88,9 @@ class DubboClient(object):
             args = [args]
 
         if self.__zk_register:  # 优先从zk中获取provider的host
-            host = self.__zk_register.get_provider_host(self.__interface)
+            host = self.__zk_register.get_provider_host(self.__interface.split("/")[1])
         elif self.__nc_register:
-            host = self.__nc_register.get_provider_host(self.__interface, self.__version)
+            host = self.__nc_register.get_provider_host(self.__interface.split("/")[1], self.__version)
         else:
             host = self.__host
         # logger.debug('get host {}'.format(host))
@@ -134,14 +135,22 @@ class DubboClient(object):
             args = [args]
 
         if self.__zk_register:  # 优先从zk中获取provider的host
-            host = self.__zk_register.get_provider_host(self.__interface)
+            host = self.__zk_register.get_provider_host(self.__interface.split("/")[1])
         elif self.__nc_register:
-            host = self.__nc_register.get_provider_host(self.__interface, self.__version)
+            host = self.__nc_register.get_provider_host(self.__interface.split("/")[1], self.__version)
         else:
             host = self.__host
         # logger.debug('get host {}'.format(host))
 
-        request_param = ','.join(args)
+        # request_param = ','.join(args)
+        request_param = json.dumps(args[0])
+        # request_param = {
+        #     'dubbo_version': self.__dubbo_version,
+        #     'version': self.__version.replace(':',''),
+        #     'path': self.__interface,
+        #     'method': method,
+        #     'arguments': args
+        # }
 
         logger.debug('Start request, host={}, params={}'.format(host, request_param))
         start_time = time.time()
@@ -357,7 +366,7 @@ class NacosRegister(object):
         """
         :param hosts: Nacos的地址
         """
-        nc = NacosClient(server_addresses=hosts, namespace=namespace, endpoint=endpoint, username=username, password=password)
+        nc = NacosClient(server_addresses=hosts, namespace=namespace_id, endpoint=endpoint, username=username, password=password)
         self.nc = nc
         self.hosts = {}
         self.timeout = timeout
@@ -387,23 +396,28 @@ class NacosRegister(object):
         :param version:
         :return:
         """
-        service = DUBBO_NC_PROVIDERS.format(interface, version)
-        providers = self.nc.get_service_list(timeout=self.timeout, group_name=self.group_name, namespace_id=self.namespace_id)
-        if not providers or service not in providers:
-            raise RegisterException('no providers for service {}'.format(service))
-        service = 'providers:com.cloudwise.bdp.service.rpc.IDataStoreService:1.0.0'
-        self.nc.subscribe([], service_name=service)
-        services = self.nc.subscribed_local_manager.get_local_instances(service) or {}
-        self.close()
-        for k, v in services.items():
-            service = v.__dict__
-            instance = service.get('instance')
-            if not isinstance(instance, list): instance = [instance]
-            hosts = []
-            for ins in instance:
-                host = '{}:{}'.format(ins.get('ip'), ins.get('port'))
-                hosts.append(host)
-            self.hosts[interface] = hosts
+        # service = DUBBO_NC_PROVIDERS.format(interface, version)
+        # providers = self.nc.get_service_list(timeout=self.timeout, group_name=self.group_name, namespace_id=self.namespace_id)
+        # if not providers or service not in providers:
+        #     raise RegisterException('no providers for service {}'.format(service))
+        # self.nc.subscribe([], service_name=service)
+        # services = self.nc.subscribed_local_manager.get_local_instances(service) or {}
+        # self.close()
+        services = self.nc.list_naming_instance(f"providers:{interface}:{version}:{self.group_name}")
+        hosts = []
+        for service in services["hosts"]:
+            host = '{}:{}'.format(service.get('ip'), service.get('port'))
+            hosts.append(host)
+        self.hosts[interface] = hosts
+        # for k, v in services.items():
+        #     service = v.__dict__
+        #     instance = service.get('instance')
+        #     if not isinstance(instance, list): instance = [instance]
+        #     hosts = []
+        #     for ins in instance:
+        #         host = '{}:{}'.format(ins.get('ip'), ins.get('port'))
+        #         hosts.append(host)
+        #     self.hosts[interface] = hosts
 
     def _routing_with_wight(self, interface):
         """
@@ -411,15 +425,10 @@ class NacosRegister(object):
         :param interface:
         :return:
         """
-        # hosts = self.hosts.get(interface)
-        hosts = "10.0.2.50:8848"
+        hosts = self.hosts.get(interface)
         if not hosts:
             raise RegisterException('no host or providers for interface {}'.format(interface))
         return random.choice(hosts)
 
     def close(self):
         self.nc.stop_subscribe()
-
-
-if __name__ == '__main__':
-    pass

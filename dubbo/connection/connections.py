@@ -28,7 +28,7 @@ from struct import unpack, pack
 from ..codec.encoder import Request
 from ..codec.decoder import Response, parse_response_head
 from ..common.constants import CLI_HEARTBEAT_RES_HEAD, CLI_HEARTBEAT_TAIL, CLI_HEARTBEAT_REQ_HEAD, \
-    TIMEOUT_CHECK_INTERVAL, TIMEOUT_IDLE, TIMEOUT_MAX_TIMES, DEFAULT_READ_PARAMS
+    TIMEOUT_CHECK_INTERVAL, TIMEOUT_IDLE, TIMEOUT_MAX_TIMES, DEFAULT_READ_PARAMS, INIT_THREAD
 from ..common.exceptions import DubboResponseException, DubboRequestTimeoutException
 from ..common.util import get_invoke_id
 
@@ -95,6 +95,7 @@ class BaseConnectionPool(object):
         :param host:
         :return:
         """
+        global INIT_THREAD
         if not host or ':' not in host:
             raise ValueError('invalid host {}'.format(host))
         if host not in self._connection_pool:
@@ -103,7 +104,9 @@ class BaseConnectionPool(object):
                 if host not in self._connection_pool:
                     self.client_heartbeats[host] = 0
                     self._new_connection(host)
-                    self.start_reading()
+                    if INIT_THREAD:
+                        self.start_reading()
+                        INIT_THREAD = False
             finally:
                 self.conn_lock.release()
         return self._connection_pool[host]

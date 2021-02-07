@@ -65,3 +65,5 @@ TIMEOUT_MAX_TIMES = 3
 # 读取的数据类型：1 head; 2 error_body; 3 common_body;
 # 头部信息不存在invoke_id，所以为None
 DEFAULT_READ_PARAMS = 16, 1, None
+
+INIT_THREAD = True
